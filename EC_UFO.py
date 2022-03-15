@@ -2,7 +2,8 @@ import tkinter as tk
 import pyautogui as pg
 from screeninfo import get_monitors
 from xarm.wrapper import XArmAPI
-# import tobii_research as tr
+import tobii_research as tr
+import time
 
 class EYE:
 	def __init__(self,x,y,size=30,color='blue'):
@@ -149,8 +150,13 @@ class BREAK_OUT:
 
 class EyeTracking:
 	def __init__(self):
-		# self.Found_EyeTrackers = tr.find_all_eyetrackers()
-		# self.My_EyeTracker =  self.Found_EyeTrackers[0]
+		self.Found_EyeTrackers = tr.find_all_eyetrackers()
+		self.My_EyeTracker =  self.Found_EyeTrackers[0]
+
+		print("Address: " + self.My_EyeTracker.address)
+		print("Model: " + self.My_EyeTracker.model)
+		print("Name (It's OK if this is empty): " + self.My_EyeTracker.device_name)
+		print("Serial number: " + self.My_EyeTracker.serial_number)
 
 		self.e_x = []
 		self.e_y = []
@@ -158,6 +164,24 @@ class EyeTracking:
 		self.s_info = get_monitors()[0]
 		self.w_width = self.s_info.width
 		self.w_height = self.s_info.height
+		print(self.w_width,self.w_height)
+
+		def gaze_data_callback(gaze_data):
+			print("Left eye: ({gaze_left_eye}) \t Right eye: ({gaze_right_eye})".format(
+        gaze_left_eye=gaze_data['left_gaze_point_on_display_area'],
+        gaze_right_eye=gaze_data['right_gaze_point_on_display_area']))
+
+		self.My_EyeTracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, self.gaze_data_callback, as_dictionary=True)
+		time.sleep(10)
+		self.My_EyeTracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, self.gaze_data_callback)
+
+	def gaze_data_callback(self,gaze_data):
+		self.time_stamp = gaze_data.device_time_stamp
+		self.left_point = gaze_data.left_eye.gaze_point.position_on_display_area
+		self.right_point = gaze_data.right_eye.gaze_point.position_on_display_area
+		self.eye_x = (self.left_point[0]+self.right_point[0])/2
+		self.eye_y = (self.left_point[1]+self.right_point[1])/2
+		print(self.time_stamp)
 
 class RobotControl:
 	def __init__(self,isEnableArm=False) -> None:

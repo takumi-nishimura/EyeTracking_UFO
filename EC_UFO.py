@@ -1,9 +1,11 @@
+import threading
 import tkinter as tk
 import pyautogui as pg
 from screeninfo import get_monitors
 from xarm.wrapper import XArmAPI
 import tobii_research as tr
 import time
+import sys
 
 class EYE:
 	def __init__(self,x,y,size=30,color='blue'):
@@ -158,30 +160,38 @@ class EyeTracking:
 		print("Name (It's OK if this is empty): " + self.My_EyeTracker.device_name)
 		print("Serial number: " + self.My_EyeTracker.serial_number)
 
-		self.e_x = []
-		self.e_y = []
-		
 		self.s_info = get_monitors()[0]
 		self.w_width = self.s_info.width
 		self.w_height = self.s_info.height
 		print(self.w_width,self.w_height)
 
+		def _gaze_data_callback(gaze_data):
+			global eye_x, eye_y
+			time_stamp = gaze_data.device_time_stamp
+			left_point = gaze_data.left_eye.gaze_point.position_on_display_area
+			right_point = gaze_data.right_eye.gaze_point.position_on_display_area
+			eye_x = (left_point[0]+right_point[0])/2
+			eye_y = (left_point[1]+right_point[1])/2
+			print(gaze_data)
+
+		self.My_EyeTracker.subscribe_to(tr.EYETRACKER_GAZE_DATA,_gaze_data_callback,as_dictionary=True)
+
+		time.sleep(4)
+
+		self.My_EyeTracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA,_gaze_data_callback)
+		print(eye_x)
+
+	def tracking(self,eyetracker):
 		def gaze_data_callback(gaze_data):
-			print("Left eye: ({gaze_left_eye}) \t Right eye: ({gaze_right_eye})".format(
-        gaze_left_eye=gaze_data['left_gaze_point_on_display_area'],
-        gaze_right_eye=gaze_data['right_gaze_point_on_display_area']))
+			global eye_x, eye_y
+			time_stamp = gaze_data.device_time_stamp
+			left_point = gaze_data.left_eye.gaze_point.position_on_display_area
+			right_point = gaze_data.right_eye.gaze_point.position_on_display_area
+			eye_x = (left_point[0]+right_point[0])/2
+			eye_y = (left_point[1]+right_point[1])/2
+			print(time_stamp)
 
-		self.My_EyeTracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, self.gaze_data_callback, as_dictionary=True)
-		time.sleep(10)
-		self.My_EyeTracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA, self.gaze_data_callback)
-
-	def gaze_data_callback(self,gaze_data):
-		self.time_stamp = gaze_data.device_time_stamp
-		self.left_point = gaze_data.left_eye.gaze_point.position_on_display_area
-		self.right_point = gaze_data.right_eye.gaze_point.position_on_display_area
-		self.eye_x = (self.left_point[0]+self.right_point[0])/2
-		self.eye_y = (self.left_point[1]+self.right_point[1])/2
-		print(self.time_stamp)
+		eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA, gaze_data_callback, as_dictionary=True)		
 
 class RobotControl:
 	def __init__(self,isEnableArm=False) -> None:
@@ -222,12 +232,42 @@ class RobotControl:
 		robotArm.set_mode(1)
 		robotArm.set_state(state=0)
 
-if __name__ in '__main__':
+found_eyetrackers = tr.find_all_eyetrackers()
+my_eyetracker = found_eyetrackers[0]
+print(my_eyetracker.model)
+
+is_gaze_data_getted = False
+eye_x, eye_y = 0.5, 0.5
+
+def gaze_data_callback(gaze_data):
+	global eye_x, eye_y, is_gaze_data_getted
+
+	time_stamp = gaze_data.device_time_stamp
+	left_point = gaze_data.left_eye.gaze_point.position_on_display_area
+	right_point = gaze_data.right_eye.gaze_point.position_on_display_area
+	eye_x = (left_point[0]+right_point[0])/2
+	eye_y = (left_point[1]+right_point[1])/2
+	is_gaze_data_getted = True
+	print(gaze_data)
+
+if __name__ == '__main__':	
+	# start = time.perf_counter()
+	my_eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA,gaze_data_callback,as_dictionary=True)
+
+	while True:
+		if(is_gaze_data_getted):
+			is_gaze_data_getted = False
+	
 	# xarm = RobotControl(isEnableArm=False)
 	# BREAK_OUT().show(xarm)
-	eyetracking = EyeTracking()
+	# et = threading.Thread(target=eyetracking.tracking(eyetracking.My_EyeTracker))
+	# et.start()
+	# start = time.perf_counter()
+	# while True:
+	# 	t = time.perf_counter() - start
+	# 	print(eye_x,eye_y)
 	# keycode = input('Input > "s": start control \n')
 	# if keycode == 's':					
 	# 	taskStartTime = time.perf_counter()
 		# BREAK_OUT().show()
-	# BREAK_OUT().show()
+	# BREAK_OUT().show()kl;aslgfsdfjolkgspfkg@s

@@ -8,7 +8,7 @@
 ## Program
 - EC_UFO.py  
 視線操作UFOキャッチャーのプログラム
-- EC.py　
+- EC.py  
 視線操作UFOキャッチャー　こっちで行こうかな　tobii動作確認済
 - tiku2.py  
 きみさんがtobiiを実験で使ったプログラム

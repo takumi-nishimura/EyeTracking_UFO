@@ -1,3 +1,4 @@
+from doctest import master
 import tobii_research as tr
 import screeninfo
 import tkinter as tk
@@ -23,7 +24,7 @@ def eye(eyetracker):
         eyetracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA,gaze_data_callback)
 
 class EYE:
-    def __init__(self,x,y,size=30,color='blue'):
+    def __init__(self,x,y,size=50,color='blue'):
         self.x1 = x - size/2
         self.y1 = y - size/2
         self.x2 = x + size/2
@@ -38,9 +39,9 @@ class EYE:
     def move(self):
         # self.x1 = pg.position()[0] - self.size/2
         # self.y1 = pg.position()[1] - self.size/2 - 28
-        print(eye_x,eye_y)
+        # print(eye_x,eye_y)
         self.x1 = eye_x - self.size/2
-        self.x2 = eye_y - self.size/2
+        self.y1 = eye_y - self.size/2
         self.x2 = self.x1 + self.size/2
         self.y2 = self.y1 + self.size/2
 
@@ -67,9 +68,9 @@ class BUTTON:
         else:
             pass
 
-    def change(self,on_limit=200):
+    def change(self,on_limit=20):
         self.s_on = 0
-        if self.x1 < pg.position()[0] and pg.position()[0] < self.x2 and self.y1 < (pg.position()[1]-28) and (pg.position()[1]-28) < self.y2:
+        if self.x1 < eye_x and eye_x < self.x2 and self.y1 < (eye_y-28) and (eye_y-28) < self.y2:
             self.on_time += 1
             # print(self.button,self.on_time)
             if self.on_time > on_limit:
@@ -88,10 +89,6 @@ class BREAK_OUT:
 
         self.master = tk.Tk()
 
-        self.window_width = self.master.winfo_screenwidth()
-        self.window_height = self.master.winfo_screenheight()
-        print(self.window_width,self.window_height)
-
         self.is_playing = False
 
         self.canvas = tk.Canvas(self.master,width=s_width,height=s_height)
@@ -102,12 +99,13 @@ class BREAK_OUT:
         self.draw()
 
     def createWidgets(self):
-        self.center = (self.window_width//2,self.window_height//2)
+        self.center = (s_width//2,s_height//2)
         self.b_up = BUTTON(self.center[0]*0.5,self.center[1]*0.4,'up')
         self.b_down = BUTTON(self.center[0]*0.5,self.center[1]*1.4,'down')
         self.b_left = BUTTON(self.center[0]*0.15,self.center[1]*0.9,'left')
         self.b_right = BUTTON(self.center[0]*0.85,self.center[1]*0.9,'right')
         self.b_start = BUTTON(self.center[0],self.center[1]*0.3,'start',100)
+        self.b_end = BUTTON(self.center[0],self.center[1]*0.8,'end',100)
         self.eye = EYE(self.center[0],self.center[1])
 
     def show(self,robot):
@@ -134,8 +132,11 @@ class BREAK_OUT:
                 self.draw()
                 self.master.after(self.TICK,self.play)
                 # self.xarm.SendDataToRobot(self.dx,self.dy)
-            else:
-                self.quit()
+                if self.end == 1:
+                    self.is_playing = 3
+            elif self.is_playing == 3:
+                self.master.destroy()
+                sys.exit()
         except KeyboardInterrupt:
             self.quit()
 
@@ -146,6 +147,7 @@ class BREAK_OUT:
         self.left = self.b_left.change()
         self.right = self.b_right.change()
         self.start = self.b_start.change(on_limit=300)
+        self.end = self.b_end.change(on_limit=300)
         self.dx += (self.right - self.left) * 0.002
         self.dy += (self.up - self.down) * 0.002
         self.dx = round(self.dx,3)
@@ -157,6 +159,7 @@ class BREAK_OUT:
         self.b_left.draw(self.canvas)
         self.b_right.draw(self.canvas)
         self.b_start.draw(self.canvas,reset=False)
+        self.b_end.draw(self.canvas,reset=False)
         self.eye.draw(self.canvas)
         self.canvas.pack()
 
@@ -216,21 +219,19 @@ if __name__ == "__main__":
     eye_y = 0.5
 
     # get screen information
-    s_info = screeninfo.get_monitors()[0]
-    # s_width = s_info.width
-    # s_height = s_info.height
-    s_width = 2560
-    s_height = 1440
-    print("screen information: ",s_width,s_height)
+    s_info = screeninfo.get_monitors()
+    if len(s_info) == 1:
+        s_info = s_info[0]
+        s_width = s_info.width
+        s_height = s_info.height
+    elif len(s_info) == 2:
+        s_info = s_info[1]
+        s_width = s_info.width
+        s_height = s_info.height
+    print("screen information: ",s_info)
 
     et = threading.Thread(target=eye(my_eyetracker))
     et.start
 
     xarm = RobotControl(isEnableArm=False)
     BREAK_OUT().show(xarm)
-
-    # try:
-    #     while True:
-    #         print(eye_x)
-    # except KeyboardInterrupt:
-    #     condition = "q"

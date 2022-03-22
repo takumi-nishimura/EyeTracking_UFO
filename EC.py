@@ -1,23 +1,24 @@
-from doctest import master
 import tobii_research as tr
 import screeninfo
 import tkinter as tk
 import pyautogui as pg
 from xarm.wrapper import XArmAPI
+from scipy import signal
+import numpy as np
 import threading
-import time
 import sys
 
 def gaze_data_callback(gaze_data):
     global eye_x, eye_y
 
-    left_point = gaze_data["left_gaze_point_on_display_area"]
-    right_point = gaze_data["right_gaze_point_on_display_area"]
+    right_point = list(gaze_data["right_gaze_point_on_display_area"])
+    left_point = list(gaze_data["left_gaze_point_on_display_area"])
 
     eye_x = (left_point[0]+right_point[0])/2*s_width
     eye_y = (left_point[1]+right_point[1])/2*s_height
 
 def eye(eyetracker):
+    
     eyetracker.subscribe_to(tr.EYETRACKER_GAZE_DATA,gaze_data_callback,as_dictionary=True)
 
     if condition == "q":
@@ -37,9 +38,6 @@ class EYE:
         canvas.create_oval(self.x1,self.y1,self.x2,self.y2,fill=self.color,tag='EYE')
     
     def move(self):
-        # self.x1 = pg.position()[0] - self.size/2
-        # self.y1 = pg.position()[1] - self.size/2 - 28
-        # print(eye_x,eye_y)
         self.x1 = eye_x - self.size/2
         self.y1 = eye_y - self.size/2
         self.x2 = self.x1 + self.size/2
@@ -119,6 +117,13 @@ class BREAK_OUT:
 
     def play(self):
         try:
+            pos = [eye_x,eye_y]
+            get_pos.append(pos)
+            filt_P = filt.lowpass(get_pos,filt_pos)
+            filt_pos.append(filt_P)
+            del get_pos[0]
+            del filt_pos[0]
+            print(filt_P)
             if self.is_playing == 1:
                 self.operate()
                 self.draw()
@@ -190,8 +195,8 @@ class RobotControl:
         if robotArm.error_code != 0:
             robotArm.clean_error()
         robotArm.motion_enable(enable=True)
-        robotArm.set_mode(0)             # set mode: position control mode
-        robotArm.set_state(state=0)      # set state: sport state
+        robotArm.set_mode(0)
+        robotArm.set_state(state=0)
         if isSetInitPosition:
             robotArm.set_position(x=self.initX, y=self.initY, z=self.initZ, roll=self.initRoll, pitch=self.initPitch, yaw=self.initYaw, wait=True)
         else:
@@ -208,6 +213,28 @@ class RobotControl:
         robotArm.set_mode(1)
         robotArm.set_state(state=0)
 
+class FILT:
+    def __init__(self, samplerate, fp, n):
+        fn = samplerate / 2
+        wn = fp / fn
+
+        self.lowB, self.lowA = signal.butter(n, wn, "low")
+        self.lowB = self.lowB.tolist()
+        self.lowA = self.lowA.tolist()
+        self.lowN = n
+
+    def lowpass(self, x_box, x_filt_box):
+        y1_all = [0,0]
+        y2_all = [0,0]
+        for i in range(0, self.lowN + 1):
+            y1 = list(map(lambda x: x * self.lowB[i], x_box[self.lowN - i]))
+            y1_all = list(map(lambda x, y: x + y, y1_all, y1))
+        for i in range(1, self.lowN + 1):
+            y2 = list(map(lambda x: x * self.lowA[i], x_filt_box[self.lowN - i]))
+            y2_all = list(map(lambda x, y: x + y, y2_all, y2))
+        y = list(map(lambda x, y: x - y, y1_all, y2_all))
+        return np.array(y)
+
 if __name__ == "__main__":
     condition = "a"
 
@@ -217,6 +244,11 @@ if __name__ == "__main__":
     print("tobii model: ",my_eyetracker.model)
     eye_x = 0.5
     eye_y = 0.5
+
+    n = 2
+    filt = FILT(180,10,n)
+    get_pos = [[0,0]] * n
+    filt_pos = [[0,0]] * n
 
     # get screen information
     s_info = screeninfo.get_monitors()

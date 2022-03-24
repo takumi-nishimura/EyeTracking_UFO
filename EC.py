@@ -7,6 +7,7 @@ from scipy import signal
 import numpy as np
 import threading
 import sys
+import matplotlib.pyplot as plt
 
 def gaze_data_callback(gaze_data):
     global eye_x, eye_y
@@ -38,8 +39,8 @@ class EYE:
         canvas.create_oval(self.x1,self.y1,self.x2,self.y2,fill=self.color,tag='EYE')
     
     def move(self):
-        self.x1 = eye_x - self.size/2
-        self.y1 = eye_y - self.size/2
+        self.x1 = filt_P[0] - self.size/2
+        self.y1 = filt_P[1] - self.size/2
         self.x2 = self.x1 + self.size/2
         self.y2 = self.y1 + self.size/2
 
@@ -68,7 +69,7 @@ class BUTTON:
 
     def change(self,on_limit=20):
         self.s_on = 0
-        if self.x1 < eye_x and eye_x < self.x2 and self.y1 < (eye_y-28) and (eye_y-28) < self.y2:
+        if self.x1 < filt_P[0] and filt_P[0] < self.x2 and self.y1 < (filt_P[1]-28) and (filt_P[1]-28) < self.y2:
             self.on_time += 1
             # print(self.button,self.on_time)
             if self.on_time > on_limit:
@@ -116,14 +117,18 @@ class BREAK_OUT:
             self.quit()
 
     def play(self):
+        global filt_P
         try:
             pos = [eye_x,eye_y]
-            get_pos.append(pos)
-            filt_P = filt.lowpass(get_pos,filt_pos)
-            filt_pos.append(filt_P)
-            del get_pos[0]
-            del filt_pos[0]
-            print(filt_P)
+            if np.isnan(pos[0]):
+                pos[0] = 0
+                if np.isnan(pos[1]):
+                    pos[1] = 0
+            filt_x = filt.lowpass(pos[0])
+            filt_y = filt.lowpass(pos[1])
+            print(filt_x[-1])
+            filt_P = [filt_x[-1],filt_y[-1]]
+            record_pos.append(filt_P[0])
             if self.is_playing == 1:
                 self.operate()
                 self.draw()
@@ -141,6 +146,12 @@ class BREAK_OUT:
                     self.is_playing = 3
             elif self.is_playing == 3:
                 self.master.destroy()
+                N = 250
+                freq = np.fft.fftfreq(N,0.004)
+                sp = np.fft.fft(record_pos)
+                Amp = np.abs(sp/(N/2))
+                plt.plot(freq[1:int(N/2)],Amp[1:int(N/2)])
+                plt.show()
                 sys.exit()
         except KeyboardInterrupt:
             self.quit()
@@ -214,26 +225,20 @@ class RobotControl:
         robotArm.set_state(state=0)
 
 class FILT:
-    def __init__(self, samplerate, fp, n):
-        fn = samplerate / 2
-        wn = fp / fn
+    def __init__(self,samplerate,fp,fs,gpass,gstop):
+        self.data = [0]*30
+        self.samplerate = samplerate
+        self.Fs = fs
+        fn = samplerate/2
+        wp = fp/fn
+        ws = fs/fn
+        N, Wn = signal.buttord(wp,ws,gpass,gstop)
+        self.b, self.a = signal.butter(4,Wn,'low')
 
-        self.lowB, self.lowA = signal.butter(n, wn, "low")
-        self.lowB = self.lowB.tolist()
-        self.lowA = self.lowA.tolist()
-        self.lowN = n
-
-    def lowpass(self, x_box, x_filt_box):
-        y1_all = [0,0]
-        y2_all = [0,0]
-        for i in range(0, self.lowN + 1):
-            y1 = list(map(lambda x: x * self.lowB[i], x_box[self.lowN - i]))
-            y1_all = list(map(lambda x, y: x + y, y1_all, y1))
-        for i in range(1, self.lowN + 1):
-            y2 = list(map(lambda x: x * self.lowA[i], x_filt_box[self.lowN - i]))
-            y2_all = list(map(lambda x, y: x + y, y2_all, y2))
-        y = list(map(lambda x, y: x - y, y1_all, y2_all))
-        return np.array(y)
+    def lowpass(self,x):
+        self.data.append(x)
+        y = signal.filtfilt(self.b,self.a,self.data)
+        return y
 
 if __name__ == "__main__":
     condition = "a"
@@ -245,10 +250,9 @@ if __name__ == "__main__":
     eye_x = 0.5
     eye_y = 0.5
 
-    n = 2
-    filt = FILT(180,10,n)
-    get_pos = [[0,0]] * n
-    filt_pos = [[0,0]] * n
+    record_pos = []
+
+    filt = FILT(250,80,150,50,250)
 
     # get screen information
     s_info = screeninfo.get_monitors()

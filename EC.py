@@ -1,3 +1,4 @@
+from re import S
 import tobii_research as tr
 import screeninfo
 import tkinter as tk
@@ -8,6 +9,7 @@ import numpy as np
 import threading
 import sys
 import matplotlib.pyplot as plt
+import time
 
 def gaze_data_callback(gaze_data):
     global eye_x, eye_y
@@ -26,7 +28,7 @@ def eye(eyetracker):
         eyetracker.unsubscribe_from(tr.EYETRACKER_GAZE_DATA,gaze_data_callback)
 
 class EYE:
-    def __init__(self,x,y,size=50,color='blue'):
+    def __init__(self,x,y,size=80,color='blue'):
         self.x1 = x - size/2
         self.y1 = y - size/2
         self.x2 = x + size/2
@@ -45,7 +47,7 @@ class EYE:
         self.y2 = self.y1 + self.size/2
 
 class BUTTON:
-    def __init__(self,x,y,button,size=180):
+    def __init__(self,x,y,button,size=250):
         self.button = button
         self.x1 = x - size/2
         self.y1 = y - size/2
@@ -67,11 +69,10 @@ class BUTTON:
         else:
             pass
 
-    def change(self,on_limit=20):
+    def change(self,on_limit=50):
         self.s_on = 0
-        if self.x1 < filt_P[0] and filt_P[0] < self.x2 and self.y1 < (filt_P[1]-28) and (filt_P[1]-28) < self.y2:
+        if self.x1 < filt_P[0] and filt_P[0] < self.x2 and self.y1 < (filt_P[1]) and (filt_P[1]) < self.y2:
             self.on_time += 1
-            # print(self.button,self.on_time)
             if self.on_time > on_limit:
                 self.s_on = 1
                 self.on = True
@@ -103,8 +104,8 @@ class BREAK_OUT:
         self.b_down = BUTTON(self.center[0]*0.5,self.center[1]*1.4,'down')
         self.b_left = BUTTON(self.center[0]*0.15,self.center[1]*0.9,'left')
         self.b_right = BUTTON(self.center[0]*0.85,self.center[1]*0.9,'right')
-        self.b_start = BUTTON(self.center[0],self.center[1]*0.3,'start',100)
-        self.b_end = BUTTON(self.center[0],self.center[1]*0.8,'end',100)
+        self.b_start = BUTTON(self.center[0]*1.5,self.center[1]*0.4,'start',180)
+        self.b_end = BUTTON(self.center[0]*1.5,self.center[1]*1.3,'end',180)
         self.eye = EYE(self.center[0],self.center[1])
 
     def show(self,robot):
@@ -119,6 +120,10 @@ class BREAK_OUT:
     def play(self):
         global filt_P
         try:
+            t = time.perf_counter()-start
+            f = 1/(t-t_l[0])
+            t_l[0] = t
+            f_l.append(f)
             pos = [eye_x,eye_y]
             if np.isnan(pos[0]):
                 pos[0] = 0
@@ -126,7 +131,6 @@ class BREAK_OUT:
                     pos[1] = 0
             filt_x = filt.lowpass(pos[0])
             filt_y = filt.lowpass(pos[1])
-            print(filt_x[-1])
             filt_P = [filt_x[-1],filt_y[-1]]
             record_pos.append(filt_P[0])
             if self.is_playing == 1:
@@ -141,17 +145,18 @@ class BREAK_OUT:
                 self.operate()
                 self.draw()
                 self.master.after(self.TICK,self.play)
-                # self.xarm.SendDataToRobot(self.dx,self.dy)
+                self.xarm.SendDataToRobot(self.dx,self.dy)
                 if self.end == 1:
                     self.is_playing = 3
             elif self.is_playing == 3:
                 self.master.destroy()
+                print('mean f',np.mean(f_l))
                 N = 250
                 freq = np.fft.fftfreq(N,0.004)
                 sp = np.fft.fft(record_pos)
                 Amp = np.abs(sp/(N/2))
                 plt.plot(freq[1:int(N/2)],Amp[1:int(N/2)])
-                plt.show()
+                # plt.show()
                 sys.exit()
         except KeyboardInterrupt:
             self.quit()
@@ -164,8 +169,8 @@ class BREAK_OUT:
         self.right = self.b_right.change()
         self.start = self.b_start.change(on_limit=300)
         self.end = self.b_end.change(on_limit=300)
-        self.dx += (self.right - self.left) * 0.002
-        self.dy += (self.up - self.down) * 0.002
+        self.dx += (self.right - self.left) * 0.04
+        self.dy += (self.up - self.down) * 0.04
         self.dx = round(self.dx,3)
         self.dy = round(self.dy,3)
 
@@ -241,6 +246,10 @@ class FILT:
         return y
 
 if __name__ == "__main__":
+    start = time.perf_counter()
+    t_l = [start]
+    f_l = []
+
     condition = "a"
 
     # eyetracker initialize

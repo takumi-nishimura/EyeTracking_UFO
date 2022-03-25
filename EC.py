@@ -169,8 +169,8 @@ class BREAK_OUT:
         self.right = self.b_right.change()
         self.start = self.b_start.change(on_limit=300)
         self.end = self.b_end.change(on_limit=300)
-        self.dx += (self.right - self.left) * 0.04
-        self.dy += (self.up - self.down) * 0.04
+        self.dx += (self.right - self.left) * 0.1
+        self.dy += (self.up - self.down) * 0.1
         self.dx = round(self.dx,3)
         self.dy = round(self.dy,3)
 
@@ -194,6 +194,8 @@ class RobotControl:
     def __init__(self,isEnableArm=False) -> None:
         self.xArmIP = '192.168.1.240'
         self.initX, self.initY, self.initZ, self.initRoll, self.initPitch, self.initYaw = 200,0,200,180,0,0
+        self.max_X, self.max_Y, self.max_Z = 460, 300, 300
+        self.min_X, self.min_Y, self.min_Z = 180, -300, 70
         if isEnableArm:
             self.arm = XArmAPI(self.xArmIP)
             self.InitializeAll(self.xArmIP)
@@ -201,6 +203,18 @@ class RobotControl:
 
     def SendDataToRobot(self,x,y):
         self.mvpose = [self.initX+x,self.initY+y,self.initZ,self.initRoll,self.initPitch,self.initYaw]
+        if self.mvpose[0] > self.max_X:
+            self.mvpose[0] = self.max_X
+        elif self.mvpose[0] < self.min_X:
+            self.mvpose[0] = self.min_X
+        if self.mvpose[1] > self.max_Y:
+            self.mvpose[1] = self.max_Y
+        elif self.mvpose[1] < self.min_Y:
+            self.mvpose[1] = self.min_Y
+        if self.mvpose[2] > self.max_Z:
+            self.mvpose[2] = self.max_Z
+        elif self.mvpose[2] < self.min_Z:
+            self.mvpose[2] = self.min_Z
         # self.arm.set_servo_cartesian(self.mvpose)
         print(self.mvpose)
 

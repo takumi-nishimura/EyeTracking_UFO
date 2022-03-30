@@ -102,8 +102,8 @@ class BREAK_OUT:
         self.b_down = BUTTON(self.center[0]*0.5,self.center[1]*1.4,'down')
         self.b_left = BUTTON(self.center[0]*0.15,self.center[1]*0.9,'left')
         self.b_right = BUTTON(self.center[0]*0.85,self.center[1]*0.9,'right')
-        self.b_start = BUTTON(self.center[0]*1.5,self.center[1]*0.4,'start',200)
-        self.b_end = BUTTON(self.center[0]*1.5,self.center[1]*1.3,'end',200)
+        self.b_start = BUTTON(self.center[0]*1.5,self.center[1]*0.4,'start',300)
+        self.b_end = BUTTON(self.center[0]*1.5,self.center[1]*1.3,'end',300)
         self.eye = EYE(self.center[0],self.center[1])
 
     def show(self,robot):
@@ -166,7 +166,7 @@ class BREAK_OUT:
         self.down = self.b_down.change()
         self.left = self.b_left.change()
         self.right = self.b_right.change()
-        self.start = self.b_start.change(on_limit=300)
+        self.start = self.b_start.change(on_limit=100)
         self.end = self.b_end.change(on_limit=300)
         self.dx += (self.right - self.left) * 0.1
         self.dy += (self.up - self.down) * 0.1
@@ -236,7 +236,7 @@ class RobotControl:
         robotArm.set_gripper_mode(0)
         robotArm.set_gripper_enable(True)
         robotArm.set_gripper_position(850, speed=5000)
-        robotArm.getset_tgpio_modbus_data(self.ConvertToModbusData(425))
+        robotArm.getset_tgpio_modbus_data(self.ConvertToModbusData(800))
         print('Initialized > xArm gripper')
 
         robotArm.set_mode(1)

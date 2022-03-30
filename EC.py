@@ -1,4 +1,3 @@
-from re import S
 import tobii_research as tr
 import screeninfo
 import tkinter as tk
@@ -104,8 +103,8 @@ class BREAK_OUT:
         self.b_down = BUTTON(self.center[0]*0.5,self.center[1]*1.4,'down')
         self.b_left = BUTTON(self.center[0]*0.15,self.center[1]*0.9,'left')
         self.b_right = BUTTON(self.center[0]*0.85,self.center[1]*0.9,'right')
-        self.b_start = BUTTON(self.center[0]*1.5,self.center[1]*0.4,'start',180)
-        self.b_end = BUTTON(self.center[0]*1.5,self.center[1]*1.3,'end',180)
+        self.b_start = BUTTON(self.center[0]*1.5,self.center[1]*0.4,'start',200)
+        self.b_end = BUTTON(self.center[0]*1.5,self.center[1]*1.3,'end',200)
         self.eye = EYE(self.center[0],self.center[1])
 
     def show(self,robot):
@@ -145,7 +144,7 @@ class BREAK_OUT:
                 self.operate()
                 self.draw()
                 self.master.after(self.TICK,self.play)
-                self.xarm.SendDataToRobot(self.dx,self.dy)
+                self.xarm.SendDataToRobot(self.dy,-self.dx)
                 if self.end == 1:
                     self.is_playing = 3
             elif self.is_playing == 3:
@@ -198,7 +197,7 @@ class RobotControl:
         self.min_X, self.min_Y, self.min_Z = 180, -300, 70
         if isEnableArm:
             self.arm = XArmAPI(self.xArmIP)
-            self.InitializeAll(self.xArmIP)
+            self.InitializeAll(self.arm)
             print('!!!ready!!!')
 
     def SendDataToRobot(self,x,y):
@@ -215,7 +214,7 @@ class RobotControl:
             self.mvpose[2] = self.max_Z
         elif self.mvpose[2] < self.min_Z:
             self.mvpose[2] = self.min_Z
-        # self.arm.set_servo_cartesian(self.mvpose)
+        self.arm.set_servo_cartesian(self.mvpose)
         print(self.mvpose)
 
     def InitializeAll(self,robotArm,isSetInitPosition=True):
@@ -242,6 +241,39 @@ class RobotControl:
 
         robotArm.set_mode(1)
         robotArm.set_state(state=0)
+
+    def ConvertToModbusData(self, value: int):
+        """
+        Converts the data to modbus type.
+
+        Parameters
+        ----------
+        value: int
+            The data to be converted.
+            Range: 0 ~ 800
+        """
+
+        if int(value) <= 255 and int(value) >= 0:
+            dataHexThirdOrder = 0x00
+            dataHexAdjustedValue = int(value)
+
+        elif int(value) > 255 and int(value) <= 511:
+            dataHexThirdOrder = 0x01
+            dataHexAdjustedValue = int(value)-256
+
+        elif int(value) > 511 and int(value) <= 767:
+            dataHexThirdOrder = 0x02
+            dataHexAdjustedValue = int(value)-512
+
+        elif int(value) > 767 and int(value) <= 1123:
+            dataHexThirdOrder = 0x03
+            dataHexAdjustedValue = int(value)-768
+
+        modbus_data = [0x08, 0x10, 0x07, 0x00, 0x00, 0x02, 0x04, 0x00, 0x00]
+        modbus_data.append(dataHexThirdOrder)
+        modbus_data.append(dataHexAdjustedValue)
+        
+        return modbus_data
 
 class FILT:
     def __init__(self,samplerate,fp,fs,gpass,gstop):
@@ -292,5 +324,5 @@ if __name__ == "__main__":
     et = threading.Thread(target=eye(my_eyetracker))
     et.start
 
-    xarm = RobotControl(isEnableArm=False)
+    xarm = RobotControl(isEnableArm=True)
     BREAK_OUT().show(xarm)

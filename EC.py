@@ -1,14 +1,13 @@
 import tobii_research as tr
-import screeninfo
-import tkinter as tk
-import pyautogui as pg
 from xarm.wrapper import XArmAPI
-from scipy import signal
+import tkinter as tk
+import screeninfo
 import numpy as np
-import threading
-import sys
-import matplotlib.pyplot as plt
 import time
+import sys
+import threading
+import matplotlib.pyplot as plt
+from scipy import signal
 
 def gaze_data_callback(gaze_data):
     global eye_x, eye_y

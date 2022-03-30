@@ -128,9 +128,10 @@ class BREAK_OUT:
                 pos[0] = 0
                 if np.isnan(pos[1]):
                     pos[1] = 0
-            filt_x = filt.lowpass(pos[0])
-            filt_y = filt.lowpass(pos[1])
-            filt_P = [filt_x[-1],filt_y[-1]]
+            # filt_x = filt.lowpass(pos[0])
+            # filt_y = filt.lowpass(pos[1])
+            # filt_P = [filt_x[-1],filt_y[-1]]
+            filt_P = [pos[0],pos[1]]
             record_pos.append(filt_P[0])
             if self.is_playing == 1:
                 self.operate()
